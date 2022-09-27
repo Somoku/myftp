@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #define MAGIC_NUMBER_LENGTH 6
-#define BUF_SIZE 128
+#define BUF_SIZE 4096
 #define MAX_PAYLOAD 2048
 #define CMD_NUM 6
 
@@ -46,4 +46,4 @@ bool ftp_auth(int, char*);
 bool ftp_ls(int);
 bool ftp_quit(int);
 bool ftp_get(int, char*);
-void ftp_put(int, char*);
+bool ftp_put(int, char*);

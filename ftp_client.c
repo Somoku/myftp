@@ -12,9 +12,10 @@ int main(int argc, char ** argv) {
         return -1;
     }
 
-    // Initial state.
+    // Initial idle state.
     state = IDLE;
     
+    // Handle user's commands.
     while(true){
         if(state == EXIT)
             break;
@@ -31,17 +32,19 @@ int main(int argc, char ** argv) {
                 break;
             case AUTH:
                 if(!ftp_auth(sock, buffer))
-                    fprintf(stderr, "Error: Failed of authentication.\n");
+                    fprintf(stderr, "Error: Failed authentication.\n");
                 break;
             case LS:
                 if(!ftp_ls(sock))
                     fprintf(stderr, "Error: Failed to ls.\n");
                 break;
             case GET:
-                ftp_get(sock, buffer);
+                if(!ftp_get(sock, buffer))
+                    fprintf(stderr, "Error: Failed to get.\n");
                 break;
             case PUT:
-                ftp_put(sock, buffer);
+                if(!ftp_put(sock, buffer))
+                    fprintf(stderr, "Error: Failed to put.\n");
                 break;
             case QUIT: 
                 if(!ftp_quit(sock))
