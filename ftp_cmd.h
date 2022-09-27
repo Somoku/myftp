@@ -5,9 +5,9 @@
 #define MAX_PAYLOAD 2048
 #define CMD_NUM 6
 
-typedef char byte;
-typedef char type;
-typedef char status;
+typedef unsigned char byte;
+typedef unsigned char type;
+typedef unsigned char status;
 
 typedef struct{
     byte m_protocol[MAGIC_NUMBER_LENGTH]; /* protocol magic number (6 bytes) */
@@ -45,5 +45,5 @@ bool ftp_open(int, char*);
 bool ftp_auth(int, char*);
 bool ftp_ls(int);
 bool ftp_quit(int);
-void ftp_get(int, char*);
+bool ftp_get(int, char*);
 void ftp_put(int, char*);

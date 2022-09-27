@@ -8,7 +8,7 @@
 int main(int argc, char ** argv) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
-        printf("Error: Socket creation failed.\n");
+        fprintf(stderr, "Error: Socket creation failed.\n");
         return -1;
     }
 
@@ -27,15 +27,15 @@ int main(int argc, char ** argv) {
         switch(cmd){
             case OPEN:
                 if(!ftp_open(sock, buffer))
-                    printf("Error: Failed to open a connection.\n");
+                    fprintf(stderr, "Error: Failed to open a connection.\n");
                 break;
             case AUTH:
                 if(!ftp_auth(sock, buffer))
-                    printf("Error: Failed of authentication.\n");
+                    fprintf(stderr, "Error: Failed of authentication.\n");
                 break;
             case LS:
                 if(!ftp_ls(sock))
-                    printf("Error: Failed to ls.\n");
+                    fprintf(stderr, "Error: Failed to ls.\n");
                 break;
             case GET:
                 ftp_get(sock, buffer);
@@ -45,10 +45,10 @@ int main(int argc, char ** argv) {
                 break;
             case QUIT: 
                 if(!ftp_quit(sock))
-                    printf("Error: Failed to quit.\n");
+                    fprintf(stderr, "Error: Failed to quit.\n");
                 break;
             default:
-                printf("Error: Invalid command.\n");
+                fprintf(stderr, "Error: Invalid command.\n");
         }
     }
     return 0;

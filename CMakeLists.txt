@@ -10,5 +10,5 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(ftp_server ftp_server.c)
 target_compile_options(ftp_server PUBLIC -Ofast)
 
-add_executable(ftp_client ftp_client.c)
+add_executable(ftp_client ftp_client.c ftp_cmd.c)
 target_compile_options(ftp_client PUBLIC -Ofast)
