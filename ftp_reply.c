@@ -25,7 +25,7 @@ bool server_open(int client){
 
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
-        size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -37,7 +37,7 @@ bool server_open(int client){
 }
 
 bool server_auth(int client, char* payload){
-    printf("user name = %s\n", payload);
+    // printf("user name = %s\n", payload);
     
     // Configure AUTH_REPLY to client.
     Header message = {
@@ -57,7 +57,7 @@ bool server_auth(int client, char* payload){
     // Send server reply.
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
-        size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -110,7 +110,7 @@ bool server_get(int client, char* file_name){
 
         size_t reply_ret = 0, len = ntohl(message.m_length);
         while (reply_ret < len){
-            size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+            ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -152,7 +152,7 @@ bool server_get(int client, char* file_name){
         // Send file data.
         size_t reply_ret = 0, len = ntohl(message.m_length) + ntohl(file_data.header.m_length);
         while (reply_ret < len){
-            size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+            ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -185,7 +185,7 @@ bool server_put(int client, char* file_name){
 
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
-        size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -198,8 +198,8 @@ bool server_put(int client, char* file_name){
 
     // Receive client file data.
     reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(client, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(client, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -210,15 +210,28 @@ bool server_put(int client, char* file_name){
     
     // Handle FILE_DATA from client.
     datagram* reply = (datagram*)malloc(sizeof(datagram));
-    memcpy(reply, buffer, sizeof(datagram));
+    memcpy(reply, buffer, sizeof(Header));
     if(reply->header.m_type != 0xFF){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
+    reply_ret = 0;
+    memset(buffer, 0, BUF_SIZE);
+    len = ntohl(reply->header.m_length) - 12;
+    while(reply_ret < len){
+        ssize_t b = recv(client, buffer + reply_ret, len - reply_ret, 0);
+        if(b == 0) break;
+        else if(b < 0){
+            fprintf(stderr, "Error: ?\n");
+            return false;
+        }
+        reply_ret += b;
+    }
+    memcpy(reply->payload, buffer, len);
 
     // Write to local file.
-    size_t file_len = ntohl(reply->header.m_length) - 12;
+    size_t file_len = len;
     FILE* up_file = fopen(file_name, "w+");
     if(!up_file){
         free(reply);
@@ -250,7 +263,7 @@ bool server_quit(int client){
 
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
-        size_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");

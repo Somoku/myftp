@@ -54,11 +54,17 @@ bool client_open(int sock, char* buf){
     addr.sin_family = AF_INET;
     inet_pton(AF_INET, ip_str, &addr.sin_addr);
 
+    // printf("IP = %s\n", ip_str);
+    // printf("Port = %d\n", port);
+    // printf("Connecting...\n");
+
     // Build a TCP connection to server.
     if(connect(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1){
         fprintf(stderr, "Error: Connection failed.\n");
         return false;
     }
+
+    // printf("Successfully connected.\n");
 
     // Configure message OPEN_CONN_REQUEST to server.
     Header message = {
@@ -70,10 +76,12 @@ bool client_open(int sock, char* buf){
     char buffer[BUF_SIZE] = {};
     memcpy(buffer, &message, ntohl(message.m_length));
 
+    // printf("Sending open request.\n");
+
     // Send client request.
     size_t request_ret = 0, len = ntohl(message.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -81,13 +89,18 @@ bool client_open(int sock, char* buf){
         }
         request_ret += b;
     }
+    // printf("request_ret = %u\n", request_ret);
+
+    // printf("Request sent.\n");
 
     memset(buffer, 0, BUF_SIZE);
 
+    // printf("Receiving server reply.\n");
+
     // Receive server reply.
     size_t reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -95,6 +108,8 @@ bool client_open(int sock, char* buf){
         }
         reply_ret += b;
     }
+
+    // printf("Server reply received.\n");
 
     // Handle OPEN_CONN_REPLY from server.
     Header* reply = (Header*)malloc(sizeof(Header));
@@ -154,7 +169,7 @@ bool client_auth(int sock, char* buf){
     // Send client request.
     size_t request_ret = 0, len = ntohl(message.header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -167,8 +182,8 @@ bool client_auth(int sock, char* buf){
 
     // Receive server reply.
     size_t reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -178,14 +193,14 @@ bool client_auth(int sock, char* buf){
     }
 
     // Handle AUTH_REPLY from server.
-    datagram* reply = (datagram*)malloc(sizeof(datagram));
-    memcpy(reply, buffer, sizeof(datagram));
-    if(reply->header.m_type != 0xA4){
+    Header* reply = (Header*)malloc(sizeof(Header));
+    memcpy(reply, buffer, sizeof(Header));
+    if(reply->m_type != 0xA4){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
-    if(reply->header.m_status == 1){
+    if(reply->m_status == 1){
         free(reply);
         state = MAIN;
         return true;
@@ -220,7 +235,7 @@ bool client_ls(int sock){
     // Send client request.
     size_t request_ret = 0, len = ntohl(header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -232,8 +247,8 @@ bool client_ls(int sock){
 
     // Receive server reply.
     size_t reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -244,12 +259,27 @@ bool client_ls(int sock){
 
     // Handle LIST_REPLY from server.
     datagram* reply = (datagram*)malloc(sizeof(datagram));
-    memcpy(reply, buffer, sizeof(datagram));
+    memcpy(reply, buffer, sizeof(Header));
     if(reply->header.m_type != 0xA6){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
+
+    memset(buffer, 0, BUF_SIZE);
+    reply_ret = 0;
+    len = ntohl(reply->header.m_length) - 12;
+    while(reply_ret < len){
+        ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+        if(b == 0) break;
+        else if(b < 0){
+            fprintf(stderr, "Error: ?\n");
+            return false;
+        }
+        reply_ret += b;
+    }
+    memcpy(reply->payload, buffer, len);
+
     printf("--- file list start ---\n");
     printf("%s\n", reply->payload);
     printf("--- file list end ---\n");
@@ -291,7 +321,7 @@ bool client_get(int sock, char* buf){
     // Send client request.
     size_t request_ret = 0, len = ntohl(message.header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -306,7 +336,7 @@ bool client_get(int sock, char* buf){
     size_t reply_ret = 0;
     len = 12;
     while(reply_ret < len){
-        size_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -335,8 +365,8 @@ bool client_get(int sock, char* buf){
         reply_ret = 0;
         memset(buffer, 0, BUF_SIZE);
 
-        while(reply_ret < BUF_SIZE){
-            size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+        while(reply_ret < 12){
+            ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -347,15 +377,29 @@ bool client_get(int sock, char* buf){
 
         // Handle FILE_DATA from server.
         datagram* reply = (datagram*)malloc(sizeof(datagram));
-        memcpy(reply, buffer, sizeof(datagram));
+        memcpy(reply, buffer, sizeof(Header));
         if(reply->header.m_type != 0xFF){
             free(reply);
             fprintf(stderr, "Error: Reply type error.\n");
             return false;
         }
 
+        len = ntohl(reply->header.m_length) - 12;
+        reply_ret = 0;
+        memset(buffer, 0, BUF_SIZE);
+        while(reply_ret < len){
+            ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+            if(b == 0) break;
+            else if(b < 0){
+                fprintf(stderr, "Error: ?\n");
+                return false;
+            }
+            reply_ret += b;
+        }
+        memcpy(reply->payload, buffer, len);
+
         // Write file data to local file.
-        size_t file_len = ntohl(reply->header.m_length) - 12;
+        size_t file_len = len;
         FILE* down_file = fopen(file_name, "w+");
         if(!down_file){
             free(reply);
@@ -411,7 +455,7 @@ bool client_put(int sock, char* buf){
     // Send client request.
     size_t request_ret = 0, len = ntohl(message_put.header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -424,8 +468,8 @@ bool client_put(int sock, char* buf){
 
     // Receive server reply.
     size_t reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -468,7 +512,7 @@ bool client_put(int sock, char* buf){
     // Send file data.
     request_ret = 0, len = ntohl(message_data.header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -481,11 +525,11 @@ bool client_put(int sock, char* buf){
 }
 
 bool client_quit(int sock){
-    if(state != MAIN){
-        fprintf(stderr, "Error: No authentication yet.\n");
-        return false;
+    if(state == IDLE){
+        printf("Quit without connection.\n");
+        state = EXIT;
+        return true;
     }
-
     // Configure message QUIT_REQUEST to server.
     Header header = {
         .m_type = 0xAB,
@@ -499,7 +543,7 @@ bool client_quit(int sock){
     // Send client request.
     size_t request_ret = 0, len = ntohl(header.m_length);
     while (request_ret < len){
-        size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -512,8 +556,8 @@ bool client_quit(int sock){
 
     // Receive server reply.
     size_t reply_ret = 0;
-    while(reply_ret < BUF_SIZE){
-        size_t b = recv(sock, buffer + reply_ret, BUF_SIZE - reply_ret, 0);
+    while(reply_ret < 12){
+        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
