@@ -30,13 +30,11 @@ int main(int argc, char ** argv) {
 
     while(true){
         if(client == -1){
-            // printf("Waiting for connection...\n");
             client = accept(sock, NULL, NULL);
             if(client == -1){
                 fprintf(stderr, "Error: Failed to accept connection.\n");
                 return -1;
             }
-            // printf("Connection accepted.\n");
         }
         memset(buf, 0, BUF_SIZE);
 
@@ -51,18 +49,14 @@ int main(int argc, char ** argv) {
                 return false;
             }
             request_ret += b;
-            // printf("request_ret = %u\n", request_ret);
         }
 
         // Handle client request.
-        // datagram* request = (datagram*)malloc(sizeof(datagram));
-        // memcpy(request, buf, sizeof(Header));
         datagram* request = (datagram*)malloc(ntohl(header->m_length));
         *request = *header;
         free(header);
         request_ret = 0;
         size_t len = ntohl(request->m_length) - 12;
-        // memset(buf, 0, BUF_SIZE);
         while(request_ret < len){
             ssize_t b = recv(client, request->payload + request_ret, len - request_ret, 0);
             if(b == 0) break;
@@ -72,7 +66,6 @@ int main(int argc, char ** argv) {
             }
             request_ret += b;
         }
-        // memcpy(request->payload, buf, len);
         char* payload = request->payload;
 
         switch(request->m_type){

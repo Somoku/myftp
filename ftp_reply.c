@@ -17,12 +17,6 @@ bool server_open(int client){
     memcpy(message.m_protocol, "\xe3myftp", 6);
 
     // Send reply to client.
-    // char buffer[BUF_SIZE] = {};
-    // memset(buffer, 0, BUF_SIZE);
-    // memcpy(buffer, &message, ntohl(message.m_length));
-    
-    // send(client, buffer, ntohl(message.m_length), 0);
-
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
         ssize_t b = send(client, &message + reply_ret, len - reply_ret, 0);
@@ -37,8 +31,6 @@ bool server_open(int client){
 }
 
 bool server_auth(int client, char* payload){
-    // printf("user name = %s\n", payload);
-    
     // Configure AUTH_REPLY to client.
     datagram message = {
         .m_type = 0xA4,
@@ -50,9 +42,6 @@ bool server_auth(int client, char* payload){
         message.m_status = 1;
     else
         message.m_status = 0;
-    
-    // char buffer[BUF_SIZE] = {};
-    // memcpy(buffer, &message, ntohl(message.m_length));
 
     // Send server reply.
     size_t reply_ret = 0, len = ntohl(message.m_length);
@@ -79,7 +68,6 @@ bool server_ls(int client){
         .m_type = 0xA6
     };
     memcpy(header.m_protocol, "\xe3myftp", 6);
-    // memset(message.payload, 0, MAX_PAYLOAD);
 
     // Acquire ls results.
     FILE* pf = popen("ls", "r");
@@ -97,11 +85,7 @@ bool server_ls(int client){
     *message = header;
     memcpy(message->payload, buf, ls_len + 1);
 
-    // printf("%s", message.payload);
-
     // Send list results to client.
-    // char buffer[BUF_SIZE] ={};
-    // memcpy(buffer, &message, ntohl(message.header.m_length));
     size_t reply_ret = 0, len = ntohl(message->m_length);
     while (reply_ret < len){
         ssize_t b = send(client, (uint8_t*)message + reply_ret, len - reply_ret, 0);
@@ -135,12 +119,6 @@ bool server_get(int client, char* file_name){
         header.m_status = 0;
 
         // Send reply to client.
-        // char buffer[BUF_SIZE] = {};
-        // memset(buffer, 0, BUF_SIZE);
-        // memcpy(buffer, &message, ntohl(message.m_length));
-        
-        // send(client, buffer, ntohl(message.m_length), 0);
-
         size_t reply_ret = 0, len = ntohl(header.m_length);
         while (reply_ret < len){
             ssize_t b = send(client, (uint8_t*)&header + reply_ret, len - reply_ret, 0);
@@ -157,9 +135,6 @@ bool server_get(int client, char* file_name){
         header.m_status = 1;
 
         // Send reply and file data to client.
-        // char buffer[BUF_SIZE] = {};
-        // memset(buffer, 0, BUF_SIZE);
-        // memcpy(buffer, &message, ntohl(message.m_length));
         size_t reply_ret = 0, len = ntohl(header.m_length);
         while (reply_ret < len){
             ssize_t b = send(client, (uint8_t*)&header + reply_ret, len - reply_ret, 0);
@@ -186,20 +161,6 @@ bool server_get(int client, char* file_name){
         file_data->m_length = htonl(HEAD_SIZE + file_len);
         memcpy(file_data->m_protocol, "\xe3myftp", 6);
         fread(file_data->payload, file_len, 1, down_file);
-
-        /*
-        datagram file_data = {
-            .m_type = 0xFF,
-            .m_status = 0
-        };
-        memcpy(file_data.m_protocol, "\xe3myftp", 6);
-        */
-        
-        // fread(file_data.payload, file_len, 1, down_file);
-        // file_data.header.m_length = htonl(12 + file_len);
-        // memcpy(buffer + ntohl(message.m_length), &file_data, ntohl(file_data.header.m_length));
-
-        // send(client, buffer, ntohl(message.m_length) + ntohl(file_data.header.m_length), 0);
 
         // Send file data.
         reply_ret = 0, len = ntohl(file_data->m_length);
@@ -231,12 +192,6 @@ bool server_put(int client, char* file_name){
     memcpy(message.m_protocol, "\xe3myftp", 6);
 
     // Send reply to client.
-    // char buffer[BUF_SIZE] = {};
-    // memset(buffer, 0, BUF_SIZE);
-    // memcpy(buffer, &message, ntohl(message.m_length));
-    
-    //send(client, buffer, ntohl(message.m_length), 0);
-
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
         ssize_t b = send(client, (uint8_t*)&message + reply_ret, len - reply_ret, 0);
@@ -247,8 +202,6 @@ bool server_put(int client, char* file_name){
         }
         reply_ret += b;
     }
-
-    // memset(buffer, 0, BUF_SIZE);
 
     // Receive client file data.
     datagram* header = (datagram*)malloc(sizeof(datagram));
@@ -264,15 +217,12 @@ bool server_put(int client, char* file_name){
     }
     
     // Handle FILE_DATA from client.
-    // datagram* reply = (datagram*)malloc(sizeof(datagram));
-    // memcpy(reply, buffer, sizeof(Header));
     if(header->m_type != 0xFF){
         free(header);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
     reply_ret = 0;
-    // memset(buffer, 0, BUF_SIZE);
     len = ntohl(header->m_length) - HEAD_SIZE;
     datagram* reply = (datagram*)malloc(ntohl(header->m_length));
     *reply = *header;
@@ -286,7 +236,6 @@ bool server_put(int client, char* file_name){
         }
         reply_ret += b;
     }
-    // memcpy(reply->payload, buffer, len);
 
     // Write to local file.
     size_t file_len = len;
@@ -313,12 +262,6 @@ bool server_quit(int client){
     memcpy(message.m_protocol, "\xe3myftp", 6);
 
     // Send reply to client.
-    // char buffer[BUF_SIZE] = {};
-    // memset(buffer, 0, BUF_SIZE);
-    // memcpy(buffer, &message, ntohl(message.m_length));
-    
-    // send(client, buffer, ntohl(message.m_length), 0);
-
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
         ssize_t b = send(client, (uint8_t*)&message + reply_ret, len - reply_ret, 0);
