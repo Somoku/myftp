@@ -7,7 +7,7 @@ enable_testing()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(ftp_server ftp_server.c)
+add_executable(ftp_server ftp_server.c ftp_reply.c)
 target_compile_options(ftp_server PUBLIC -Ofast)
 
 add_executable(ftp_client ftp_client.c ftp_cmd.c)

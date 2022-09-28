@@ -17,7 +17,7 @@ enum Command cmd_type(char* cmd){
     return INVALID;
 }
 
-bool ftp_open(int sock, char* buf){
+bool client_open(int sock, char* buf){
     if(state != IDLE){
         fprintf(stderr, "Error: Connection already built.\n");
         return false;
@@ -114,7 +114,7 @@ bool ftp_open(int sock, char* buf){
     return false;
 }
 
-bool ftp_auth(int sock, char* buf){
+bool client_auth(int sock, char* buf){
     if(state != CONN){
         fprintf(stderr, "Error: No connection yet.\n");
         return false;
@@ -201,7 +201,7 @@ bool ftp_auth(int sock, char* buf){
     return false;
 }
 
-bool ftp_ls(int sock){
+bool client_ls(int sock){
     if(state != MAIN){
         fprintf(stderr, "Error: No authentication yet.\n");
         return false;
@@ -257,7 +257,7 @@ bool ftp_ls(int sock){
     return true;
 }
 
-bool ftp_get(int sock, char* buf){
+bool client_get(int sock, char* buf){
     if(state != MAIN){
         fprintf(stderr, "Error: No authentication yet.\n");
         return false;
@@ -355,7 +355,7 @@ bool ftp_get(int sock, char* buf){
         }
 
         // Write file data to local file.
-        size_t file_len = reply->header.m_length - 12;
+        size_t file_len = ntohl(reply->header.m_length) - 12;
         FILE* down_file = fopen(file_name, "w+");
         if(!down_file){
             free(reply);
@@ -371,7 +371,7 @@ bool ftp_get(int sock, char* buf){
     return false;
 }
 
-bool ftp_put(int sock, char* buf){
+bool client_put(int sock, char* buf){
     if(state != MAIN){
         fprintf(stderr, "Error: No authentication yet.\n");
         return false;
@@ -398,16 +398,18 @@ bool ftp_put(int sock, char* buf){
     }
 
     // Configure message PUT_REQUEST to server.
-    Header header = {
-        .m_type = 0xA9,
-        .m_status = 0,
-        .m_length = htonl(12)
+    datagram message_put = {
+        .header.m_type = 0xA9,
+        .header.m_status = 0
     };
-    memcpy(header.m_protocol, "\xe3myftp", 6);
-    memcpy(buffer, &header, ntohl(header.m_length));
+    memcpy(message_put.header.m_protocol, "\xe3myftp", 6);
+    memset(message_put.payload, 0, sizeof(message_put.payload));
+    sprintf(message_put.payload, "%s", file_name);
+    message_put.header.m_length = htonl(12 + strlen(message_put.payload) + 1);
+    memcpy(buffer, &message_put, ntohl(message_put.header.m_length));
 
     // Send client request.
-    size_t request_ret = 0, len = ntohl(header.m_length);
+    size_t request_ret = 0, len = ntohl(message_put.header.m_length);
     while (request_ret < len){
         size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
@@ -444,12 +446,12 @@ bool ftp_put(int sock, char* buf){
     memset(buffer, 0, BUF_SIZE);
 
     // Configure message FILE_DATA to server.
-    datagram message = {
+    datagram message_data = {
         .header.m_type = 0xFF,
         .header.m_status = 0
     };
-    memcpy(message.header.m_protocol, "\xe3myftp", 6);
-    memset(message.payload, 0, sizeof(message.payload));
+    memcpy(message_data.header.m_protocol, "\xe3myftp", 6);
+    memset(message_data.payload, 0, sizeof(message_data.payload));
     size_t file_len;
     FILE* up_file = fopen(file_name, "r");
     if(!up_file){
@@ -459,12 +461,12 @@ bool ftp_put(int sock, char* buf){
     fseek(up_file, 0, SEEK_END);
     file_len = ftell(up_file);
     fseek(up_file, 0, SEEK_SET);
-    fread(message.payload, file_len, 1, up_file);
-    message.header.m_length = htonl(12 + file_len);
-    memcpy(buffer, &message, ntohl(message.header.m_length));
+    fread(message_data.payload, file_len, 1, up_file);
+    message_data.header.m_length = htonl(12 + file_len);
+    memcpy(buffer, &message_data, ntohl(message_data.header.m_length));
 
     // Send file data.
-    request_ret = 0, len = ntohl(message.header.m_length);
+    request_ret = 0, len = ntohl(message_data.header.m_length);
     while (request_ret < len){
         size_t b = send(sock, buffer + request_ret, len - request_ret, 0);
         if(b == 0) break;
@@ -474,10 +476,11 @@ bool ftp_put(int sock, char* buf){
         }
         request_ret += b;
     }
+    fclose(up_file);
     return true;
 }
 
-bool ftp_quit(int sock){
+bool client_quit(int sock){
     if(state != MAIN){
         fprintf(stderr, "Error: No authentication yet.\n");
         return false;

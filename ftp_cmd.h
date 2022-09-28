@@ -41,9 +41,9 @@ enum State{
 enum State state;
 
 enum Command cmd_type(char*);
-bool ftp_open(int, char*);
-bool ftp_auth(int, char*);
-bool ftp_ls(int);
-bool ftp_quit(int);
-bool ftp_get(int, char*);
-bool ftp_put(int, char*);
+bool client_open(int, char*);
+bool client_auth(int, char*);
+bool client_ls(int);
+bool client_quit(int);
+bool client_get(int, char*);
+bool client_put(int, char*);

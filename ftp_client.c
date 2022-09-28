@@ -27,27 +27,27 @@ int main(int argc, char ** argv) {
         int cmd = cmd_type(buffer);
         switch(cmd){
             case OPEN:
-                if(!ftp_open(sock, buffer))
+                if(!client_open(sock, buffer))
                     fprintf(stderr, "Error: Failed to open a connection.\n");
                 break;
             case AUTH:
-                if(!ftp_auth(sock, buffer))
+                if(!client_auth(sock, buffer))
                     fprintf(stderr, "Error: Failed authentication.\n");
                 break;
             case LS:
-                if(!ftp_ls(sock))
+                if(!client_ls(sock))
                     fprintf(stderr, "Error: Failed to ls.\n");
                 break;
             case GET:
-                if(!ftp_get(sock, buffer))
+                if(!client_get(sock, buffer))
                     fprintf(stderr, "Error: Failed to get.\n");
                 break;
             case PUT:
-                if(!ftp_put(sock, buffer))
+                if(!client_put(sock, buffer))
                     fprintf(stderr, "Error: Failed to put.\n");
                 break;
             case QUIT: 
-                if(!ftp_quit(sock))
+                if(!client_quit(sock))
                     fprintf(stderr, "Error: Failed to quit.\n");
                 break;
             default:
