@@ -7,8 +7,6 @@
 #include <arpa/inet.h>
 #include "ftp_cmd.h"
 
-//TODO: Comfirm all len and sizeof(datagram).
-
 enum Command cmd_type(char* cmd){
     char* all_cmds[CMD_NUM] = {"open", "auth", "ls", "get", "put", "quit"};
     for(int i=0;i<CMD_NUM;++i)
@@ -281,7 +279,7 @@ bool client_ls(int sock){
     memcpy(reply->payload, buffer, len);
 
     printf("--- file list start ---\n");
-    printf("%s\n", reply->payload);
+    printf("%s", reply->payload);
     printf("--- file list end ---\n");
     free(reply);
     return true;

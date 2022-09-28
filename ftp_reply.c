@@ -79,9 +79,34 @@ bool server_ls(int client){
         .header.m_type = 0xA6
     };
     memcpy(message.header.m_protocol, "\xe3myftp", 6);
+    memset(message.payload, 0, MAX_PAYLOAD);
 
-    //TODO: Acquire list results.
-    return false;
+    // Acquire ls results.
+    FILE* pf = popen("ls", "r");
+    if(!pf) {
+        fprintf(stderr, "Error: popen error.\n");
+        return false;
+    }
+    size_t ls_len = fread(message.payload, 1, MAX_PAYLOAD, pf);
+    message.header.m_length = htonl(12 + ls_len + 1);
+    pclose(pf);
+
+    // printf("%s", message.payload);
+
+    // Send list results to client.
+    char buffer[BUF_SIZE] ={};
+    memcpy(buffer, &message, ntohl(message.header.m_length));
+    size_t reply_ret = 0, len = ntohl(message.header.m_length);
+    while (reply_ret < len){
+        ssize_t b = send(client, buffer + reply_ret, len - reply_ret, 0);
+        if(b == 0) break;
+        else if(b < 0){
+            fprintf(stderr, "Error: ?\n");
+            return false;
+        }
+        reply_ret += b;
+    }
+    return true;
 }
 
 bool server_get(int client, char* file_name){
