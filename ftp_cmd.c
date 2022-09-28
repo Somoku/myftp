@@ -65,21 +65,22 @@ bool client_open(int sock, char* buf){
     // printf("Successfully connected.\n");
 
     // Configure message OPEN_CONN_REQUEST to server.
-    Header message = {
+    datagram message = {
         .m_type = 0xA1,
         .m_status = 0,
-        .m_length = htonl(12)
+        .m_length = htonl(HEAD_SIZE)
     };
+    printf("size of message = %d\n", sizeof(message));
     memcpy(message.m_protocol, "\xe3myftp", 6);
-    char buffer[BUF_SIZE] = {};
-    memcpy(buffer, &message, ntohl(message.m_length));
+    // char buffer[BUF_SIZE] = {};
+    // memcpy(buffer, &message, ntohl(message.m_length));
 
     // printf("Sending open request.\n");
 
     // Send client request.
     size_t request_ret = 0, len = ntohl(message.m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)&message + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -91,27 +92,27 @@ bool client_open(int sock, char* buf){
 
     // printf("Request sent.\n");
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // printf("Receiving server reply.\n");
 
     // Receive server reply.
+    datagram* reply = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    while(reply_ret < 12){
-        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(reply);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         reply_ret += b;
     }
-
+    
     // printf("Server reply received.\n");
 
     // Handle OPEN_CONN_REPLY from server.
-    Header* reply = (Header*)malloc(sizeof(Header));
-    memcpy(reply, buffer, sizeof(Header));
     if(reply->m_type != 0xA2){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
@@ -153,37 +154,46 @@ bool client_auth(int sock, char* buf){
     }
 
     // Configure message AUTH_REQUEST to server.
-    datagram message = {
-        .header.m_type = 0xA3,
-        .header.m_status = 0
+    datagram header = {
+        .m_type = 0xA3,
+        .m_status = 0
     };
-    memcpy(message.header.m_protocol, "\xe3myftp", 6);
-    memset(message.payload, 0, sizeof(message.payload));
-    sprintf(message.payload, "%s %s", user, pass);
-    message.header.m_length = htonl(12 + strlen(message.payload) + 1);
-    char buffer[BUF_SIZE] = {};
-    memcpy(buffer, &message, ntohl(message.header.m_length));
+    memcpy(header.m_protocol, "\xe3myftp", 6);
+    // memset(message.payload, 0, sizeof(message.payload));
+    // sprintf(header.payload, "%s %s", user, pass);
+    header.m_length = htonl(HEAD_SIZE + strlen(user) + 1 + strlen(pass) + 1);
+    
+    datagram* message = (datagram*)malloc(ntohl(header.m_length));
+    *message = header;
+    sprintf(message->payload, "%s %s", user, pass);
+    
+    // char buffer[BUF_SIZE] = {};
+    // memcpy(buffer, &message, ntohl(message.header.m_length));
 
     // Send client request.
-    size_t request_ret = 0, len = ntohl(message.header.m_length);
+    size_t request_ret = 0, len = ntohl(message->m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)message + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(message);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         request_ret += b;
     }
+    free(message);
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Receive server reply.
+    datagram* reply = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    while(reply_ret < 12){
-        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(reply);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
@@ -191,8 +201,8 @@ bool client_auth(int sock, char* buf){
     }
 
     // Handle AUTH_REPLY from server.
-    Header* reply = (Header*)malloc(sizeof(Header));
-    memcpy(reply, buffer, sizeof(Header));
+    // Header* reply = (Header*)malloc(sizeof(Header));
+    // memcpy(reply, buffer, sizeof(Header));
     if(reply->m_type != 0xA4){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
@@ -221,19 +231,19 @@ bool client_ls(int sock){
     }
 
     // Configure message LIST_REQUEST to server.
-    Header header = {
+    datagram message = {
         .m_type = 0xA5,
         .m_status = 0,
-        .m_length = htonl(12)
+        .m_length = htonl(HEAD_SIZE)
     };
-    memcpy(header.m_protocol, "\xe3myftp", 6);
-    char buffer[BUF_SIZE] = {};
-    memcpy(buffer, &header, ntohl(header.m_length));
+    memcpy(message.m_protocol, "\xe3myftp", 6);
+    // char buffer[BUF_SIZE] = {};
+    // memcpy(buffer, &header, ntohl(header.m_length));
 
     // Send client request.
-    size_t request_ret = 0, len = ntohl(header.m_length);
+    size_t request_ret = 0, len = ntohl(message.m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)&message + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -241,42 +251,49 @@ bool client_ls(int sock){
         }
         request_ret += b;
     }
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Receive server reply.
+    datagram* header = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    while(reply_ret < 12){
-        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)header + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(header);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         reply_ret += b;
     }
 
+    datagram* reply = (datagram*)malloc(ntohl(header->m_length));
+    *reply = *header;
+    free(header);
+
     // Handle LIST_REPLY from server.
-    datagram* reply = (datagram*)malloc(sizeof(datagram));
-    memcpy(reply, buffer, sizeof(Header));
-    if(reply->header.m_type != 0xA6){
+    // datagram* reply = (datagram*)malloc(sizeof(datagram));
+    // memcpy(reply, buffer, sizeof(Header));
+    if(reply->m_type != 0xA6){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
     reply_ret = 0;
-    len = ntohl(reply->header.m_length) - 12;
+    len = ntohl(reply->m_length) - 12;
     while(reply_ret < len){
-        ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+        ssize_t b = recv(sock, reply->payload + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(reply);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         reply_ret += b;
     }
-    memcpy(reply->payload, buffer, len);
+    // memcpy(reply->payload, buffer, len);
 
     printf("--- file list start ---\n");
     printf("%s", reply->payload);
@@ -305,36 +322,41 @@ bool client_get(int sock, char* buf){
     }
     
     // Configure message GET_REQUEST to server.
-    datagram message = {
-        .header.m_type = 0xA7,
-        .header.m_status = 0
+    datagram header = {
+        .m_type = 0xA7,
+        .m_status = 0
     };
-    memcpy(message.header.m_protocol, "\xe3myftp", 6);
-    memset(message.payload, 0, sizeof(message.payload));
-    sprintf(message.payload, "%s", file_name);
-    message.header.m_length = htonl(12 + strlen(message.payload) + 1);
-    char buffer[BUF_SIZE] = {};
-    memcpy(buffer, &message, ntohl(message.header.m_length));
+    memcpy(header.m_protocol, "\xe3myftp", 6);
+    header.m_length = htonl(12 + strlen(file_name) + 1);
+    datagram* message = (datagram*)malloc(ntohl(header.m_length));
+    *message = header;
+    // memset(message.payload, 0, sizeof(message.payload));
+    sprintf(message->payload, "%s", file_name);
+    // message.header.m_length = htonl(12 + strlen(message.payload) + 1);
+    // char buffer[BUF_SIZE] = {};
+    // memcpy(buffer, &message, ntohl(message.header.m_length));
 
     // Send client request.
-    size_t request_ret = 0, len = ntohl(message.header.m_length);
+    size_t request_ret = 0, len = ntohl(message->m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)message + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(message);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         request_ret += b;
     }
+    free(message);
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Receive server reply.
+    datagram* reply = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    len = 12;
-    while(reply_ret < len){
-        ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -344,8 +366,8 @@ bool client_get(int sock, char* buf){
     }
 
     // Handle GET_REPLY from server.
-    Header* reply = (Header*)malloc(sizeof(Header));
-    memcpy(reply, buffer, sizeof(Header));
+    // Header* reply = (Header*)malloc(sizeof(Header));
+    // memcpy(reply, buffer, sizeof(Header));
     if(reply->m_type != 0xA8){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
@@ -361,10 +383,10 @@ bool client_get(int sock, char* buf){
 
         // Receive file data from server.
         reply_ret = 0;
-        memset(buffer, 0, BUF_SIZE);
-
-        while(reply_ret < 12){
-            ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+        // memset(buffer, 0, BUF_SIZE);
+        datagram* header = (datagram*)malloc(sizeof(datagram));
+        while(reply_ret < HEAD_SIZE){
+            ssize_t b = recv(sock, (uint8_t*)header + reply_ret, HEAD_SIZE - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -374,19 +396,21 @@ bool client_get(int sock, char* buf){
         }
 
         // Handle FILE_DATA from server.
-        datagram* reply = (datagram*)malloc(sizeof(datagram));
-        memcpy(reply, buffer, sizeof(Header));
-        if(reply->header.m_type != 0xFF){
+        datagram* reply = (datagram*)malloc(ntohl(header->m_length));
+        *reply = *header;
+        free(header);
+        // memcpy(reply, buffer, sizeof(Header));
+        if(reply->m_type != 0xFF){
             free(reply);
             fprintf(stderr, "Error: Reply type error.\n");
             return false;
         }
 
-        len = ntohl(reply->header.m_length) - 12;
+        len = ntohl(reply->m_length) - HEAD_SIZE;
         reply_ret = 0;
-        memset(buffer, 0, BUF_SIZE);
+        // memset(buffer, 0, BUF_SIZE);
         while(reply_ret < len){
-            ssize_t b = recv(sock, buffer + reply_ret, len - reply_ret, 0);
+            ssize_t b = recv(sock, reply->payload + reply_ret, len - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -394,7 +418,7 @@ bool client_get(int sock, char* buf){
             }
             reply_ret += b;
         }
-        memcpy(reply->payload, buffer, len);
+        // memcpy(reply->payload, buffer, len);
 
         // Write file data to local file.
         size_t file_len = len;
@@ -421,7 +445,7 @@ bool client_put(int sock, char* buf){
 
     // Acquire file name.
     char* file_name, *token;
-    char buffer[BUF_SIZE] = {};
+    // char buffer[BUF_SIZE] = {};
     token = strtok(buf, " \n");
     file_name = strtok(NULL, " \n");
     if(!file_name){
@@ -440,20 +464,23 @@ bool client_put(int sock, char* buf){
     }
 
     // Configure message PUT_REQUEST to server.
-    datagram message_put = {
-        .header.m_type = 0xA9,
-        .header.m_status = 0
+    datagram header = {
+        .m_type = 0xA9,
+        .m_status = 0
     };
-    memcpy(message_put.header.m_protocol, "\xe3myftp", 6);
-    memset(message_put.payload, 0, sizeof(message_put.payload));
-    sprintf(message_put.payload, "%s", file_name);
-    message_put.header.m_length = htonl(12 + strlen(message_put.payload) + 1);
-    memcpy(buffer, &message_put, ntohl(message_put.header.m_length));
+    memcpy(header.m_protocol, "\xe3myftp", 6);
+    header.m_length = htonl(HEAD_SIZE + strlen(file_name) + 1);
+    // memset(message_put.payload, 0, sizeof(message_put.payload));
+    datagram* message = (datagram*)malloc(ntohl(header.m_length));
+    *message = header;
+    sprintf(message->payload, "%s", file_name);
+    // message_put.header.m_length = htonl(12 + strlen(message_put.payload) + 1);
+    // memcpy(buffer, &message_put, ntohl(message_put.header.m_length));
 
     // Send client request.
-    size_t request_ret = 0, len = ntohl(message_put.header.m_length);
+    size_t request_ret = 0, len = ntohl(message->m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)message + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -462,12 +489,13 @@ bool client_put(int sock, char* buf){
         request_ret += b;
     }
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Receive server reply.
+    datagram* reply = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    while(reply_ret < 12){
-        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -477,23 +505,17 @@ bool client_put(int sock, char* buf){
     }
 
     // Handle PUT_REPLY from server.
-    Header* reply = (Header*)malloc(sizeof(Header));
-    memcpy(reply, buffer, sizeof(Header));
+    // Header* reply = (Header*)malloc(sizeof(Header));
+    // memcpy(reply, buffer, sizeof(Header));
     if(reply->m_type != 0xAA){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");
         return false;
     }
     free(reply);
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Configure message FILE_DATA to server.
-    datagram message_data = {
-        .header.m_type = 0xFF,
-        .header.m_status = 0
-    };
-    memcpy(message_data.header.m_protocol, "\xe3myftp", 6);
-    memset(message_data.payload, 0, sizeof(message_data.payload));
     size_t file_len;
     FILE* up_file = fopen(file_name, "r");
     if(!up_file){
@@ -503,21 +525,33 @@ bool client_put(int sock, char* buf){
     fseek(up_file, 0, SEEK_END);
     file_len = ftell(up_file);
     fseek(up_file, 0, SEEK_SET);
-    fread(message_data.payload, file_len, 1, up_file);
-    message_data.header.m_length = htonl(12 + file_len);
-    memcpy(buffer, &message_data, ntohl(message_data.header.m_length));
+
+    // fread(message_data.payload, file_len, 1, up_file);
+    datagram message_head = {
+        .m_type = 0xFF,
+        .m_status = 0
+    };
+    memcpy(message_head.m_protocol, "\xe3myftp", 6);
+    // memset(message_data.payload, 0, sizeof(message_data.payload));
+    message_head.m_length = htonl(12 + file_len);
+    datagram* file_data = (datagram*)malloc(ntohl(message_head.m_length));
+    *file_data = message_head;
+    fread(file_data->payload, file_len, 1, up_file);
+    // memcpy(buffer, &message_data, ntohl(message_data.header.m_length));
 
     // Send file data.
-    request_ret = 0, len = ntohl(message_data.header.m_length);
+    request_ret = 0, len = ntohl(file_data->m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)file_data + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(file_data);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
         request_ret += b;
     }
+    free(file_data);
     fclose(up_file);
     return true;
 }
@@ -529,19 +563,19 @@ bool client_quit(int sock){
         return true;
     }
     // Configure message QUIT_REQUEST to server.
-    Header header = {
+    datagram header = {
         .m_type = 0xAB,
         .m_status = 0,
-        .m_length = htonl(12)
+        .m_length = htonl(HEAD_SIZE)
     };
     memcpy(header.m_protocol, "\xe3myftp", 6);
-    char buffer[BUF_SIZE] = {};
-    memcpy(buffer, &header, ntohl(header.m_length));
+    // char buffer[BUF_SIZE] = {};
+    // memcpy(buffer, &header, ntohl(header.m_length));
 
     // Send client request.
     size_t request_ret = 0, len = ntohl(header.m_length);
     while (request_ret < len){
-        ssize_t b = send(sock, buffer + request_ret, len - request_ret, 0);
+        ssize_t b = send(sock, (uint8_t*)&header + request_ret, len - request_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -550,12 +584,13 @@ bool client_quit(int sock){
         request_ret += b;
     }
 
-    memset(buffer, 0, BUF_SIZE);
+    // memset(buffer, 0, BUF_SIZE);
 
     // Receive server reply.
+    datagram* reply = (datagram*)malloc(sizeof(datagram));
     size_t reply_ret = 0;
-    while(reply_ret < 12){
-        ssize_t b = recv(sock, buffer + reply_ret, 12 - reply_ret, 0);
+    while(reply_ret < HEAD_SIZE){
+        ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -565,8 +600,8 @@ bool client_quit(int sock){
     }
 
     // Handle LIST_REPLY from server.
-    Header* reply = (Header*)malloc(sizeof(Header));
-    memcpy(reply, buffer, sizeof(Header));
+    // Header* reply = (Header*)malloc(sizeof(Header));
+    // memcpy(reply, buffer, sizeof(Header));
     if(reply->m_type != 0xAC){
         free(reply);
         fprintf(stderr, "Error: Reply type error.\n");

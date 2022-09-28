@@ -9,6 +9,7 @@
 #include "ftp_reply.h"
 
 int main(int argc, char ** argv) {
+    // Build a socket for connection.
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
         fprintf(stderr, "Error: Failed to create a socket.\n");
@@ -40,9 +41,10 @@ int main(int argc, char ** argv) {
         memset(buf, 0, BUF_SIZE);
 
         // Receive client request.
+        datagram* header = (datagram*)malloc(sizeof(datagram));
         size_t request_ret = 0;
-        while(request_ret < 12){
-            ssize_t b = recv(client, buf + request_ret, 12 - request_ret, 0);
+        while(request_ret < HEAD_SIZE){
+            ssize_t b = recv(client, (uint8_t*)header + request_ret, HEAD_SIZE - request_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -53,13 +55,16 @@ int main(int argc, char ** argv) {
         }
 
         // Handle client request.
-        datagram* request = (datagram*)malloc(sizeof(datagram));
-        memcpy(request, buf, sizeof(Header));
+        // datagram* request = (datagram*)malloc(sizeof(datagram));
+        // memcpy(request, buf, sizeof(Header));
+        datagram* request = (datagram*)malloc(ntohl(header->m_length));
+        *request = *header;
+        free(header);
         request_ret = 0;
-        size_t len = ntohl(request->header.m_length) - 12;
-        memset(buf, 0, BUF_SIZE);
+        size_t len = ntohl(request->m_length) - 12;
+        // memset(buf, 0, BUF_SIZE);
         while(request_ret < len){
-            ssize_t b = recv(client, buf + request_ret, len - request_ret, 0);
+            ssize_t b = recv(client, request->payload + request_ret, len - request_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
@@ -67,10 +72,10 @@ int main(int argc, char ** argv) {
             }
             request_ret += b;
         }
-        memcpy(request->payload, buf, len);
+        // memcpy(request->payload, buf, len);
         char* payload = request->payload;
 
-        switch(request->header.m_type){
+        switch(request->m_type){
             case 0xA1:
                 if(!server_open(client))
                     fprintf(stderr, "Error: Failed to handle open request.\n");
