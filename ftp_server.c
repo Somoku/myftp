@@ -53,6 +53,7 @@ int main(int argc, char ** argv) {
 
         // Client has closed connection.
         if(request_ret == 0){
+            free(header);
             close(client);
             client = -1;
             continue;

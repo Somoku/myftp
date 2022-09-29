@@ -480,7 +480,11 @@ bool client_put(int sock, char* buf){
     message_head.m_length = htonl(12 + file_len);
     datagram* file_data = (datagram*)malloc(ntohl(message_head.m_length));
     *file_data = message_head;
-    fread(file_data->payload, file_len, 1, up_file);
+    size_t read_byte = fread(file_data->payload, 1, file_len, up_file);
+    if(read_byte != file_len){
+        fprintf(stderr, "Error: Can't read the entire file.\n");
+        return false;
+    }
 
     // Send file data.
     request_ret = 0, len = ntohl(file_data->m_length);

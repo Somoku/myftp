@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "ftp_cmd.h"
@@ -22,7 +23,11 @@ int main(int argc, char ** argv) {
 
         char buffer[BUF_SIZE];
         printf("Client> ");
-        fgets(buffer, BUF_SIZE, stdin);
+        char* buf_ret = fgets(buffer, BUF_SIZE, stdin);
+        if(!buf_ret){
+            fprintf(stderr, "Error: Failed to input commands.\n");
+            continue;
+        }
         
         int cmd = cmd_type(buffer);
         switch(cmd){
@@ -31,8 +36,17 @@ int main(int argc, char ** argv) {
                     fprintf(stderr, "Error: Failed to open a connection.\n");
                 break;
             case AUTH:
-                if(!client_auth(sock, buffer))
+                if(!client_auth(sock, buffer)){
+                    if(state == IDLE){
+                        close(sock);
+                        sock = socket(AF_INET, SOCK_STREAM, 0);
+                        if(sock == -1){
+                            fprintf(stderr, "Error: Socket creation failed.\n");
+                            return -1;
+                        }
+                    }
                     fprintf(stderr, "Error: Failed authentication.\n");
+                }
                 break;
             case LS:
                 if(!client_ls(sock))

@@ -160,7 +160,11 @@ bool server_get(int client, char* file_name){
         file_data->m_status = 0;
         file_data->m_length = htonl(HEAD_SIZE + file_len);
         memcpy(file_data->m_protocol, "\xe3myftp", 6);
-        size_t l = fread(file_data->payload, file_len, 1, down_file);
+        size_t l = fread(file_data->payload, 1, file_len, down_file);
+        if(l != file_len){
+            fprintf(stderr, "Error: Can't read the entire file.\n");
+            return false;
+        }
 
         // Send file data.
         reply_ret = 0, len = ntohl(file_data->m_length);
