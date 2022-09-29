@@ -51,6 +51,13 @@ int main(int argc, char ** argv) {
             request_ret += b;
         }
 
+        // Client has closed connection.
+        if(request_ret == 0){
+            close(client);
+            client = -1;
+            continue;
+        }
+
         // Handle client request.
         datagram* request = (datagram*)malloc(ntohl(header->m_length));
         *request = *header;

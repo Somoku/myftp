@@ -101,7 +101,7 @@ bool client_open(int sock, char* buf){
     if(reply->m_status == 1){
         free(reply);
         state = CONN;
-        printf("Successfully connected.\n");
+        printf("Server connection accepted.\n");
         return true;
     }
     free(reply);
@@ -182,13 +182,13 @@ bool client_auth(int sock, char* buf){
     if(reply->m_status == 1){
         free(reply);
         state = MAIN;
+        printf("Authentication granted.\n");
         return true;
     }
     else{
         free(reply);
-        close(sock);
         state = IDLE;
-        printf("Connection closed.\n");
+        printf("Error: Authentication rejected. Connection closed.\n");
         return false;
     }
     free(reply);
@@ -258,9 +258,9 @@ bool client_ls(int sock){
         reply_ret += b;
     }
 
-    printf("--- file list start ---\n");
+    printf("----- file list start -----\n");
     printf("%s", reply->payload);
-    printf("--- file list end ---\n");
+    printf("----- file list end -----\n");
     free(reply);
     return true;
 }
@@ -386,6 +386,7 @@ bool client_get(int sock, char* buf){
         fclose(down_file);
         
         free(reply);
+        printf("File downloaded.\n");
         return true;
     }
     return false;
@@ -495,15 +496,22 @@ bool client_put(int sock, char* buf){
     }
     free(file_data);
     fclose(up_file);
+    printf("File uploaded.\n");
     return true;
 }
 
 bool client_quit(int sock){
     if(state == IDLE){
-        printf("Quit without connection.\n");
+        printf("Thank you.\n");
         state = EXIT;
         return true;
     }
+    else if(state == CONN){
+        printf("Thank you.\n");
+        state = EXIT;
+        return true;
+    }
+
     // Configure message QUIT_REQUEST to server.
     datagram header = {
         .m_type = 0xAB,
@@ -544,8 +552,7 @@ bool client_quit(int sock){
         return false;
     }
     free(reply);
-    close(sock);
     state = EXIT;
-    printf("Connection closed.\n");
+    printf("Thank you.\n");
     return true;
 }

@@ -272,6 +272,5 @@ bool server_quit(int client){
         }
         reply_ret += b;
     }
-    printf("Quit...\n");
     return true;
 }

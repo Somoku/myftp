@@ -21,7 +21,7 @@ int main(int argc, char ** argv) {
             break;
 
         char buffer[BUF_SIZE];
-        printf("Please input your command:\n");
+        printf("Client> ");
         fgets(buffer, BUF_SIZE, stdin);
         
         int cmd = cmd_type(buffer);
@@ -54,5 +54,6 @@ int main(int argc, char ** argv) {
                 fprintf(stderr, "Error: Invalid command.\n");
         }
     }
+    close(sock);
     return 0;
 }
