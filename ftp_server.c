@@ -56,9 +56,9 @@ int main(int argc, char ** argv) {
         *request = *header;
         free(header);
         request_ret = 0;
-        size_t len = ntohl(request->m_length) - 12;
+        size_t len = ntohl(request->m_length) - HEAD_SIZE;
         while(request_ret < len){
-            ssize_t b = recv(client, request->payload + request_ret, len - request_ret, 0);
+            ssize_t b = recv(client, (uint8_t*)request->payload + request_ret, len - request_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");

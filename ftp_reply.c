@@ -19,7 +19,7 @@ bool server_open(int client){
     // Send reply to client.
     size_t reply_ret = 0, len = ntohl(message.m_length);
     while (reply_ret < len){
-        ssize_t b = send(client, &message + reply_ret, len - reply_ret, 0);
+        ssize_t b = send(client, (uint8_t*)&message + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -160,7 +160,7 @@ bool server_get(int client, char* file_name){
         file_data->m_status = 0;
         file_data->m_length = htonl(HEAD_SIZE + file_len);
         memcpy(file_data->m_protocol, "\xe3myftp", 6);
-        fread(file_data->payload, file_len, 1, down_file);
+        size_t l = fread(file_data->payload, file_len, 1, down_file);
 
         // Send file data.
         reply_ret = 0, len = ntohl(file_data->m_length);
@@ -207,7 +207,7 @@ bool server_put(int client, char* file_name){
     datagram* header = (datagram*)malloc(sizeof(datagram));
     reply_ret = 0;
     while(reply_ret < HEAD_SIZE){
-        ssize_t b = recv(client, (int8_t*)header + reply_ret, HEAD_SIZE - reply_ret, 0);
+        ssize_t b = recv(client, (uint8_t*)header + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             fprintf(stderr, "Error: ?\n");
@@ -272,5 +272,6 @@ bool server_quit(int client){
         }
         reply_ret += b;
     }
+    printf("Quit...\n");
     return true;
 }

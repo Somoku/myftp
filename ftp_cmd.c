@@ -248,7 +248,7 @@ bool client_ls(int sock){
     reply_ret = 0;
     len = ntohl(reply->m_length) - 12;
     while(reply_ret < len){
-        ssize_t b = recv(sock, reply->payload + reply_ret, len - reply_ret, 0);
+        ssize_t b = recv(sock, (uint8_t*)reply->payload + reply_ret, len - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
             free(reply);
@@ -290,9 +290,10 @@ bool client_get(int sock, char* buf){
         .m_status = 0
     };
     memcpy(header.m_protocol, "\xe3myftp", 6);
-    header.m_length = htonl(12 + strlen(file_name) + 1);
+    header.m_length = htonl(HEAD_SIZE + strlen(file_name) + 1);
     datagram* message = (datagram*)malloc(ntohl(header.m_length));
     *message = header;
+    memset(message->payload, 0, ntohl(header.m_length) - HEAD_SIZE);
     sprintf(message->payload, "%s", file_name);
 
     // Send client request.
@@ -316,6 +317,7 @@ bool client_get(int sock, char* buf){
         ssize_t b = recv(sock, (uint8_t*)reply + reply_ret, HEAD_SIZE - reply_ret, 0);
         if(b == 0) break;
         else if(b < 0){
+            free(reply);
             fprintf(stderr, "Error: ?\n");
             return false;
         }
@@ -343,6 +345,7 @@ bool client_get(int sock, char* buf){
             ssize_t b = recv(sock, (uint8_t*)header + reply_ret, HEAD_SIZE - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
+                free(header);
                 fprintf(stderr, "Error: ?\n");
                 return false;
             }
@@ -362,7 +365,7 @@ bool client_get(int sock, char* buf){
         len = ntohl(reply->m_length) - HEAD_SIZE;
         reply_ret = 0;
         while(reply_ret < len){
-            ssize_t b = recv(sock, reply->payload + reply_ret, len - reply_ret, 0);
+            ssize_t b = recv(sock, (uint8_t*)reply->payload + reply_ret, len - reply_ret, 0);
             if(b == 0) break;
             else if(b < 0){
                 fprintf(stderr, "Error: ?\n");
